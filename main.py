@@ -1,25 +1,18 @@
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
+import random
+import os
 from flags import flags_list 
 
 # Skor tutma
 
 skor_dosyasi= "scores.txt"
 
-def skoru_kaydet(kullanici_adi, skor):
-    
-    try:
-        with open(skor_dosyasi, "a", encoding="utf-8") as f:
-            f.write(f"{kullanici_adi},{skor}\n")
-    
-    except Exception:
-        print(" Bir hatadan dolayı skor kaydedilemedi.")
-
-def skorlari_getir():
-    
+# Skorları okuma
+def skorlari_oku():
+    """scores.txt içeriğini oku, (isim, skor) listesi döndür, skora göre azalan sırada."""
     skorlar = []
-
     try:
         with open(skor_dosyasi, "r", encoding="utf-8") as f:
             for satir in f:
@@ -27,13 +20,44 @@ def skorlari_getir():
                     isim, skor_puan = satir.strip().split(',')
                     skorlar.append((isim, int(skor_puan)))
                 except ValueError:
-                    continue 
-
+                    continue
         skorlar.sort(key=lambda x: x[1], reverse=True)
         return skorlar
-    
     except FileNotFoundError:
         return []
+    
+# Skoru kaydet ve güncelle
+def skoru_kaydet(kullanici_adi, skor):
+    skor_dict = {}
+    try:
+        for isim, puan in skorlari_oku():
+            skor_dict[isim] = puan
+    except Exception:
+        pass
+
+    mevcut = skor_dict.get(kullanici_adi)
+    if mevcut is None or skor > mevcut:
+        skor_dict[kullanici_adi] = skor
+
+    try:
+        sirali = sorted(skor_dict.items(), key=lambda x: x[1], reverse=True)
+        with open(skor_dosyasi, "w", encoding="utf-8") as f:
+            for isim, puan in sirali:
+                f.write(f"{isim},{puan}\n")
+    except Exception as e:
+        print("Skor yazılırken hata:", e)
+
+  
+# En yüksek skoru getirme
+def en_yuksek_skoru_getir():
+    
+    mevcut_skorlar = skorlari_oku()
+    if not mevcut_skorlar:
+        return ("Yok", 0)
+    
+    
+    en_iyi = max(mevcut_skorlar, key=lambda x: x[1])
+    return en_iyi 
     
 # Menü Oluşturma
 
@@ -82,35 +106,73 @@ class Flagguess:
     def baslangic_ekranini_goster(self):
        
         self.ekrani_temizle()
+
+        try:
+            img_path = "img/gorsel.jpeg"
+            img = Image.open(img_path)
+            img = img.resize((300, 220), Image.LANCZOS)  # boyutu ayarlayabilirsin
+            self.gorsel = ImageTk.PhotoImage(img)  # self ile sakla
+            label_gorsel = tk.Label(self.ana_pencere, image=self.gorsel)
+            self.ogeler.append(label_gorsel)  # takip listesine ekle
+        except Exception as e:
+            print("Görsel yüklenemedi:", e)
         
         label1 = tk.Label(self.ana_pencere, text="Bayrak Tahmin Oyununa Hoşgeldin!", font=("Arial", 20, "bold"))
+
+        en_isim, en_puan = en_yuksek_skoru_getir()
+        if en_puan == 0 and en_isim == "Yok":
+            yuksek_text = "Henüz kayıtlı skor yok."
+        else:
+            yuksek_text = f"En yüksek skor: {en_puan} — {en_isim} \n Bakalım geçebilecek misin?"
+
+        label_yuksek = tk.Label(self.ana_pencere, text=yuksek_text, font=("Arial", 12, "bold"), fg="blue")
+        
+
         kural_metni = "Doğru cevapları ne kadar erken bilirsen,\n o kadar çok puan kazanırsın!\n"
         label2 = tk.Label(self.ana_pencere, text=kural_metni, font=("Arial", 14))
         label3 = tk.Label(self.ana_pencere, text="Kullanıcı Adı:", font=("Arial", 14))
         self.kullanici_girisi = tk.Entry(self.ana_pencere, font=("Arial", 14), width=20)
         baslat_butonu = tk.Button(self.ana_pencere, text="OYUNA BAŞLA", font=("Arial", 16, "bold"),
-                                  bg="green", fg="white", command=self.oyunu_baslat)
+                                  bg="white", fg="black", command=self.oyuncu_kontrol_ve_basla)
         
         label1.pack(pady=(40, 10))
         label2.pack(pady=10)
+        label_yuksek.pack(pady=5)
+        label_gorsel.pack(pady=10)
         label3.pack(pady=(40, 5))
         self.kullanici_girisi.pack(pady=5)
         baslat_butonu.pack(pady=20)
         
         self.ogeler.extend([label1, label2, label3, self.kullanici_girisi, baslat_butonu])
 
-    # Oyunu başlatma fonksiyonu
-    def oyunu_baslat(self):
-        
+       
+    # Oyuncu kontrol etme
+    def oyuncu_kontrol_ve_basla(self):
         isim = self.kullanici_girisi.get().strip()
-        
         if not isim:
-            messagebox.showwarning("Hata", "Lütfen bir kullanıcı adı girin!")
-            return 
-            
+            messagebox.showwarning("Uyarı", "Lütfen bir isim girin!")
+            return
+        
         self.kullanici_adi = isim
-        self.oyun_ekranini_goster() 
-    
+        
+        # Kullanıcı kontrolü
+        mevcut_dict = dict(skorlari_oku())
+        
+        if isim in mevcut_dict:
+            eski_rekor = mevcut_dict[isim]
+            messagebox.showinfo("Hoşgeldin!", f"Tekrar hoşgeldin {isim}!\nSenin En Yüksek Skorun: {eski_rekor}")
+        else:
+            messagebox.showinfo("Hoşgeldin!", f"Aramıza hoşgeldin {isim}!\nİyi şanslar.")
+
+        # Oyun verisini hazırla
+        toplam_bayrak = len(flags_list)
+        soru_sayisi = min(20, toplam_bayrak)
+        self.oyun_verisi = random.sample(flags_list, soru_sayisi) if soru_sayisi > 0 else []
+        random.shuffle(self.oyun_verisi)
+
+        self.oyun_ekranini_goster()
+
+
     # Oyun ekranını gösterme fonksiyonu
     def oyun_ekranini_goster(self):
         
@@ -118,7 +180,6 @@ class Flagguess:
         
         self.skor = 0
         self.soru_index = 0
-        self.oyun_verisi = flags_list[:] 
         self.toplam_soru = len(self.oyun_verisi)
         
         self.soru_sayac_etiketi = tk.Label(self.ana_pencere, text=f"Soru: 1 / {self.toplam_soru}", font=("Arial", 16))
@@ -164,6 +225,13 @@ class Flagguess:
         soru_verisi = self.oyun_verisi[self.soru_index]
         self.dogru_cevap = soru_verisi["answer"]
 
+        # Seçenekleri karıştır
+        secenekler = soru_verisi["options"][:] 
+        random.shuffle(secenekler)
+
+        for i, btn in enumerate(self.secenek_butonlari):
+            btn.config(text=secenekler[i], state="normal")
+
         try:
             resim_yolu = f"img/{soru_verisi['file']}"
             img = Image.open(resim_yolu)
@@ -173,11 +241,6 @@ class Flagguess:
 
         except Exception:
             print("Hata")
-
-
-        secenekler = soru_verisi["options"][:] 
-        for i in range(4):
-            self.secenek_butonlari[i].config(text=secenekler[i], state="normal")
 
         self.soru_index += 1
         
@@ -231,7 +294,7 @@ class Flagguess:
         label_baslik = tk.Label(self.ana_pencere, text="Oyun Bitti!", font=("Arial", 22, "bold"))
         label_baslik.pack(pady=(20,10))
         
-        tum_skorlar = skorlari_getir()
+        tum_skorlar = skorlari_oku()
         
         benim_siram = -1
         for i, (isim, skor_puan) in enumerate(tum_skorlar, 1):
