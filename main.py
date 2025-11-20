@@ -110,10 +110,10 @@ class Flagguess:
         try:
             img_path = "img/gorsel.jpeg"
             img = Image.open(img_path)
-            img = img.resize((300, 220), Image.LANCZOS)  # boyutu ayarlayabilirsin
+            img = img.resize((300, 220), Image.LANCZOS)  
             self.gorsel = ImageTk.PhotoImage(img)  # self ile sakla
             label_gorsel = tk.Label(self.ana_pencere, image=self.gorsel)
-            self.ogeler.append(label_gorsel)  # takip listesine ekle
+            self.ogeler.append(label_gorsel)  
         except Exception as e:
             print("Görsel yüklenemedi:", e)
         
@@ -143,7 +143,7 @@ class Flagguess:
         self.kullanici_girisi.pack(pady=5)
         baslat_butonu.pack(pady=20)
         
-        self.ogeler.extend([label1, label2, label3, self.kullanici_girisi, baslat_butonu])
+        self.ogeler.extend([label1, label2, label3, self.kullanici_girisi, baslat_butonu, label_gorsel, label_yuksek])
 
        
     # Oyuncu kontrol etme
@@ -291,10 +291,15 @@ class Flagguess:
        
         self.ekrani_temizle()
         
-        label_baslik = tk.Label(self.ana_pencere, text="Oyun Bitti!", font=("Arial", 22, "bold"))
+        label_baslik = tk.Label(self.ana_pencere, text="Oyun Bitti!", font=("Arial", 22, "bold",))
         label_baslik.pack(pady=(20,10))
         
         tum_skorlar = skorlari_oku()
+
+        if self.tebrik_mesaji != "":
+            label_tebrik = tk.Label(self.ana_pencere, text=self.tebrik_mesaji, font=("Arial", 16), fg="green", wraplength=400, justify="center")
+            label_tebrik.pack(pady=(5, 15))
+            self.ogeler.append(label_tebrik)
         
         benim_siram = -1
         for i, (isim, skor_puan) in enumerate(tum_skorlar, 1):
@@ -349,8 +354,12 @@ class Flagguess:
     # Oyun bitişi
     
     def oyunu_bitir(self):
-       
+        en_isim, en_puan = en_yuksek_skoru_getir()
         skoru_kaydet(self.kullanici_adi, self.skor)
+
+        self.tebrik_mesaji = ""
+        if self.skor > en_puan:
+            self.tebrik_mesaji = f"Tebrikler {self.kullanici_adi}! Oyunu kazandın ve en yüksek skoru geçtin! 🎉"
         
         self.skor_tablosunu_goster()
 
