@@ -11,7 +11,7 @@ skor_dosyasi= "scores.txt"
 
 # Skorları okuma
 def skorlari_oku():
-    """scores.txt içeriğini oku, (isim, skor) listesi döndür, skora göre azalan sırada."""
+    
     skorlar = []
     try:
         with open(skor_dosyasi, "r", encoding="utf-8") as f:
